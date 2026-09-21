@@ -1,5 +1,5 @@
 #include<iostream>
-#include<bits/stdc++.h>
+
 using namespace std;
 
 enum position{
@@ -69,40 +69,47 @@ node* create_node(){    // start with this node where eveyone is on left
     start_node->current_state=start_state();
     return start_node;
 }
-state edit_state(state parent, action change)
+state edit_state(const state& current, action change)
 {
-    // Person always moves
-    parent.person = (parent.person == position::left)
-                    ? position::right
-                    : position::left;
+    state next = current;
 
-    // Move the selected item with the person
+    // Person always moves.
+    // Since the boat is with the person,
+    // this also represents the boat changing sides.
+    next.person = (next.person == position::left)
+                  ? position::right
+                  : position::left;
+
+    // Move the selected item with the person.
     switch(change)
     {
         case move_wolf:
-            parent.wolf = (parent.wolf == position::left)
-                          ? position::right
-                          : position::left;
+            next.wolf = (next.wolf == position::left)
+                        ? position::right
+                        : position::left;
             break;
 
         case move_goat:
-            parent.goat = (parent.goat == position::left)
-                          ? position::right
-                          : position::left;
+            next.goat = (next.goat == position::left)
+                        ? position::right
+                        : position::left;
             break;
 
         case move_cabbage:
-            parent.cabbage = (parent.cabbage == position::left)
-                             ? position::right
-                             : position::left;
+            next.cabbage = (next.cabbage == position::left)
+                           ? position::right
+                           : position::left;
             break;
 
         case move_person:
-            // Person has already been moved.
+            // Person travels alone.
+            break;
+
+        default:
             break;
     }
 
-    return parent;
+    return next;
 }
 bool canMove(const state& s, action a)
 {
@@ -136,36 +143,65 @@ bool isValidState(const state& s)
 
     return true;
 }
+bool stateInPath(node* current, const state& s)
+{
+    node* temp = current;
+
+    while (temp != nullptr)
+    {
+        if (same_state(temp->current_state, s))
+        {
+            return true;
+        }
+
+        temp = temp->parent;
+    }
+
+    return false;
+}
 node* addchild(node* parent)
 {
     node* firstChild = nullptr;
     node* lastChild = nullptr;
 
+    // Four possible boat actions
     action actions[4] = {
         move_person,
-        move_cabbage,
+        move_wolf,
         move_goat,
-        move_wolf
+        move_cabbage
     };
 
     for (int i = 0; i < 4; i++)
     {
         action currentAction = actions[i];
 
-        if (!canMove(parent->current_state, currentAction)){
+        // Check whether the action is possible
+        if (!canMove(parent->current_state, currentAction))
+        {
             continue;
         }
 
-        // Create the state after performing the action
+        // Apply the action
         state newState = edit_state(
             parent->current_state,
             currentAction
         );
 
-        // Only construct the branch if the state is valid
+        // Reject unsafe states
         if (!isValidState(newState))
+        {
             continue;
+        }
 
+        // Reject states already present
+        // on the current path
+        if (stateInPath(parent, newState))
+        {
+            continue;
+        }
+
+        // Create child
         node* child = new node();
 
         child->current_state = newState;
@@ -174,7 +210,7 @@ node* addchild(node* parent)
         child->child = nullptr;
         child->sibling = nullptr;
 
-        // First valid child
+        // Add child to linked list
         if (firstChild == nullptr)
         {
             firstChild = child;
@@ -187,12 +223,111 @@ node* addchild(node* parent)
         }
     }
 
-    // Connect first child to parent
     parent->child = firstChild;
 
     return firstChild;
 }
-int main(){
-    cout<<"Hello World"<<endl;
+string actionName(action a)
+{
+    switch(a)
+    {
+        case move_person:
+            return "Person crosses alone";
+
+        case move_wolf:
+            return "Person takes wolf";
+
+        case move_goat:
+            return "Person takes goat";
+
+        case move_cabbage:
+            return "Person takes cabbage";
+
+        default:
+            return "Start";
+    }
+}
+void printPath(node* current)
+{
+    if (current == nullptr)
+    {
+        return;
+    }
+
+    // Print the parent first so that
+    // the path appears from start to goal.
+    if (current->parent != nullptr)
+    {
+        printPath(current->parent);
+
+        cout << "    "
+             << actionName(current->action_taken)
+             << " -> ";
+    }
+    else
+    {
+        cout << "    Start -> ";
+    }
+
+    cout << "("
+         << (current->current_state.person == position::left ? "L" : "R")
+         << ", "
+         << (current->current_state.wolf == position::left ? "L" : "R")
+         << ", "
+         << (current->current_state.goat == position::left ? "L" : "R")
+         << ", "
+         << (current->current_state.cabbage == position::left ? "L" : "R")
+         << ")"
+         << endl;
+}
+int solutionCount = 0;
+
+void DFS(node* current)
+{
+    if (current == nullptr)
+    {
+        return;
+    }
+
+    // Check whether we have reached the goal.
+    if (is_goal(current))
+    {
+        solutionCount++;
+
+        cout << "\n============================" << endl;
+        cout << "Solution " << solutionCount << endl;
+        cout << "============================" << endl;
+
+        printPath(current);
+
+        return;
+    }
+
+    // Generate valid successor states.
+    addchild(current);
+
+    // Explore every child using DFS.
+    node* child = current->child;
+
+    while (child != nullptr)
+    {
+        DFS(child);
+
+        child = child->sibling;
+    }
+}
+int main()
+{
+    node* root = create_node();
+
+    cout << "Starting DFS..." << endl;
+
+    DFS(root);
+
+    cout << "\n============================" << endl;
+    cout << "Total solutions: "
+         << solutionCount << endl;
+    cout << "============================" << endl;
+
     return 0;
 }
